@@ -61,14 +61,14 @@ public class ContentCollectionTask extends AdaptiveRelayTask<ContentConfig, Inte
         }
 
         // Parse the HTML
-        final Document doc = Jsoup.parse(content);
+        final Document document = Jsoup.parse(content);
 
         // Extract article information
-        final String title = extractTitle(doc);
-        final String description = extractDescription(doc);
-        final String mainContent = extractMainContent(doc);
+        final String title = extractTitle(document);
+        final String description = extractDescription(document);
+        final String mainContent = extractMainContent(document);
         final String source = extractSource(url);
-        final ZonedDateTime publishDate = extractPublishDate(doc);
+        final ZonedDateTime publishDate = extractPublishDate(document);
 
         // Create article content object
         final ArticleContent articleContent =
