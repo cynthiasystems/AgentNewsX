@@ -41,7 +41,7 @@ Analyzes and extracts content from discovered articles:
 #### 3. InterestingTweetTask
 
 Evaluates content and generates engaging social media posts:
-- Uses LambdaLabs API (Claude) to analyze article relevance
+- Uses LambdaLabs API to analyze article relevance
 - Scores articles on a 1-100 interestingness scale
 - Generates concise, engaging tweets about significant content
 - Selects only the most interesting content to share
@@ -77,7 +77,7 @@ The system is built on AgentFlow, which provides:
 
 2. **Content Processing**: Discovered URLs are rendered and parsed to extract meaningful content, handling JavaScript-heavy modern websites.
 
-3. **AI Evaluation**: Each article is analyzed by a large language model (Claude) to determine:
+3. **AI Evaluation**: Each article is analyzed by a large language model (DeepSeek-R1 671B) to determine:
     - How interesting/significant the content is
     - Key insights worth sharing
     - Appropriate language for social sharing
