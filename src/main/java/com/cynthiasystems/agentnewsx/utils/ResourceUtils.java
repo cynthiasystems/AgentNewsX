@@ -3,6 +3,7 @@ package com.cynthiasystems.agentnewsx.utils;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
+import java.util.Properties;
 
 import org.apache.commons.io.IOUtils;
 
@@ -20,5 +21,19 @@ public class ResourceUtils {
     return new String(
         IOUtils.toByteArray(Optional.ofNullable(inputStream).orElseThrow()),
         StandardCharsets.UTF_8);
+  }
+
+  @SneakyThrows
+  public static InputStream readStringResourceToInputStream(@NonNull final String resourcePath) {
+    return ResourceUtils.class.getResourceAsStream(resourcePath);
+  }
+
+  @SneakyThrows
+  public static Properties readApplicationProperties() {
+    @Cleanup
+    final InputStream inputStream = readStringResourceToInputStream("/application.properties");
+    final Properties properties = new Properties();
+    properties.load(inputStream);
+    return properties;
   }
 }

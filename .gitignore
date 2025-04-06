@@ -23,9 +23,16 @@
 hs_err_pid*
 replay_pid*
 
+# Env files
+.env
+application.properties
+
 # Intellij files
 .idea/
 
 # Maven files
 dependency-reduced-pom.xml
 target/
+
+# MacOS Files
+.DS_Store
