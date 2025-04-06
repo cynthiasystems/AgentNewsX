@@ -53,7 +53,13 @@ public class StartAgentCommand implements Callable<Integer> {
 
     searchSourcesTask.accept(agentConfig);
 
-    final Agent agent = Agent.builder().task(searchSourcesTask).build();
+    final Agent agent =
+        Agent.builder()
+            .task(searchSourcesTask)
+            .task(contentCollectionTask)
+            .task(interestingTweetTask)
+            .task(twitterPostTask)
+            .build();
 
     agent.start();
 
