@@ -1,1 +1,1 @@
-# Agentic News X
+# Agent News X
