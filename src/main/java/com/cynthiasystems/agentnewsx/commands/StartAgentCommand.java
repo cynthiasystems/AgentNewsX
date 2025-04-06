@@ -18,7 +18,7 @@ import lombok.experimental.Accessors;
 import picocli.CommandLine;
 
 @Accessors(fluent = true)
-@CommandLine.Command(description = "Start the TwitterAgent", name = "StartAgent")
+@CommandLine.Command(description = "Start the Agent News X agent", name = "StartAgent")
 @Value
 public class StartAgentCommand implements Callable<Integer> {
 

@@ -4,8 +4,7 @@ import java.net.URI;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Optional;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -33,9 +32,6 @@ import lombok.experimental.FieldDefaults;
 public class ContentCollectionTask extends AdaptiveRelayTask<ContentConfig, InterestingConfig> {
   private static final int URL_PARTS_LENGTH = 2;
 
-  // Set of already processed URLs to avoid duplicates
-  Set<String> processedUrls = ConcurrentHashMap.newKeySet();
-
   /** Private constructor that initializes the task with an expression function. */
   private ContentCollectionTask() {
     super(ContentCollectionTask::processUrls);
@@ -50,8 +46,8 @@ public class ContentCollectionTask extends AdaptiveRelayTask<ContentConfig, Inte
    *
    * @return The extracted article content
    */
-  private static InterestingConfig processUrls(@NonNull final ContentConfig contentConfig) {
-    final List<String> urls = contentConfig.urls();
+  private static InterestingConfig processUrls(@NonNull final ContentConfig config) {
+    final List<String> urls = config.urls();
     final List<ArticleContent> articleContents = new ArrayList<>();
     for (final String url : urls) {
       try {
@@ -75,7 +71,7 @@ public class ContentCollectionTask extends AdaptiveRelayTask<ContentConfig, Inte
         final ZonedDateTime publishDate = extractPublishDate(doc);
 
         // Create article content object
-        ArticleContent articleContent =
+        final ArticleContent articleContent =
             ArticleContent.builder()
                 .url(url)
                 .title(title)
@@ -92,52 +88,52 @@ public class ContentCollectionTask extends AdaptiveRelayTask<ContentConfig, Inte
         AgentLog.error("Error processing URL: " + url + " - " + e.getMessage());
       }
     }
-    return InterestingConfig.builder()
-        .config(contentConfig)
-        .articleContents(articleContents)
-        .build();
+    return InterestingConfig.builder().config(config).articleContents(articleContents).build();
   }
 
   /**
    * Extract the title from an HTML document.
    *
-   * @param doc The Jsoup document
+   * @param document The Jsoup document
    * @return The title text
    */
-  private static String extractTitle(Document doc) {
+  private static String extractTitle(@NonNull final Document document) {
     // Try article heading first
-    Element heading = doc.selectFirst("article h1, .article-title, .entry-title, .post-title");
-    if (heading != null) {
+    final Element heading =
+        document.selectFirst("article h1, .article-title, .entry-title, .post-title");
+    if (Optional.ofNullable(heading).isPresent()) {
       return heading.text().trim();
     }
 
     // Fall back to page title
-    return doc.title().trim();
+    return document.title().trim();
   }
 
   /**
    * Extract the description from an HTML document.
    *
-   * @param doc The Jsoup document
+   * @param document The Jsoup document
    * @return The description text
    */
-  private static String extractDescription(Document doc) {
+  private static String extractDescription(@NonNull final Document document) {
     // Try meta description
-    Element meta = doc.selectFirst("meta[name=description]");
-    if (meta != null) {
+    final Element meta = document.selectFirst("meta[name=description]");
+    if (Optional.ofNullable(meta).isPresent()) {
       return meta.attr("content").trim();
     }
 
     // Try article summary/subtitle
-    Element summary = doc.selectFirst(".article-summary, .entry-summary, .post-summary, .subtitle");
-    if (summary != null) {
+    final Element summary =
+        document.selectFirst(".article-summary, .entry-summary, .post-summary, .subtitle");
+    if (Optional.ofNullable(summary).isPresent()) {
       return summary.text().trim();
     }
 
     // Try first paragraph
-    Element firstP = doc.selectFirst("article p, .article-content p, .entry-content p");
-    if (firstP != null) {
-      return firstP.text().trim();
+    final Element firstParagraph =
+        document.selectFirst("article p, .article-content p, .entry-content p");
+    if (Optional.ofNullable(firstParagraph).isPresent()) {
+      return firstParagraph.text().trim();
     }
 
     return "";
@@ -146,44 +142,36 @@ public class ContentCollectionTask extends AdaptiveRelayTask<ContentConfig, Inte
   /**
    * Extract the main content from an HTML document.
    *
-   * @param doc The Jsoup document
+   * @param document The Jsoup document
    * @return The main content text
    */
-  private static String extractMainContent(Document doc) {
+  private static String extractMainContent(@NonNull final Document document) {
     // Try common article content selectors
-    Element content =
-        doc.selectFirst("article, .article-content, .entry-content, .post-content, main");
+    final Element content =
+        document.selectFirst("article, .article-content, .entry-content, .post-content, main");
 
-    if (content != null) {
+    final Elements paragraphs;
+    if (Optional.ofNullable(content).isPresent()) {
       // Remove non-content elements
       content.select("aside, nav, footer, .comments, .related, .share, script, style").remove();
 
       // Get all paragraphs
-      Elements paragraphs = content.select("p");
-      StringBuilder sb = new StringBuilder();
-
-      for (Element p : paragraphs) {
-        String text = p.text().trim();
-        if (!text.isEmpty()) {
-          sb.append(text).append("\n\n");
-        }
-      }
-
-      return sb.toString().trim();
+      paragraphs = content.select("p");
+    } else {
+      // Fall back to all paragraphs
+      paragraphs = document.select("p");
     }
 
-    // Fall back to all paragraphs
-    Elements paragraphs = doc.select("p");
-    StringBuilder sb = new StringBuilder();
+    final StringBuilder stringBuilder = new StringBuilder();
 
-    for (Element p : paragraphs) {
-      String text = p.text().trim();
+    for (final Element paragraph : paragraphs) {
+      final String text = paragraph.text().trim();
       if (!text.isEmpty()) {
-        sb.append(text).append("\n\n");
+        stringBuilder.append(text).append("\n\n");
       }
     }
 
-    return sb.toString().trim();
+    return stringBuilder.toString().trim();
   }
 
   /**
@@ -192,18 +180,14 @@ public class ContentCollectionTask extends AdaptiveRelayTask<ContentConfig, Inte
    * @param url The article URL
    * @return The source name
    */
-  private static String extractSource(String url) {
+  private static String extractSource(@NonNull final String url) {
     try {
-      URI uri = URI.create(url);
-      String host = uri.getHost();
-
-      // Remove www. prefix
-      if (host.startsWith("www.")) {
-        host = host.substring(4);
-      }
+      final URI uri = URI.create(url);
+      final String host =
+          uri.getHost().startsWith("www.") ? uri.getHost().substring(4) : uri.getHost();
 
       // Get domain name
-      String[] parts = host.split("\\.");
+      final String[] parts = host.split("\\.");
       if (parts.length >= URL_PARTS_LENGTH) {
         return parts[parts.length - 2];
       }
@@ -217,31 +201,32 @@ public class ContentCollectionTask extends AdaptiveRelayTask<ContentConfig, Inte
   /**
    * Extract the publication date from an HTML document.
    *
-   * @param doc The Jsoup document
+   * @param document The Jsoup document
    * @return The publication date or null if not found
    */
-  private static ZonedDateTime extractPublishDate(Document doc) {
+  private static ZonedDateTime extractPublishDate(@NonNull final Document document) {
     try {
       // Try meta tags
-      Element metaDate = doc.selectFirst("meta[property=article:published_time]");
-      if (metaDate != null) {
+      final Element metaDate = document.selectFirst("meta[property=article:published_time]");
+      if (Optional.ofNullable(metaDate).isPresent()) {
         return ZonedDateTime.parse(metaDate.attr("content"));
       }
 
       // Try time elements
-      Element timeElement = doc.selectFirst("time");
-      if (timeElement != null && timeElement.hasAttr("datetime")) {
+      final Element timeElement = document.selectFirst("time");
+      if (Optional.ofNullable(timeElement).isPresent() && timeElement.hasAttr("datetime")) {
         return ZonedDateTime.parse(timeElement.attr("datetime"));
       }
 
       // Try common date selectors
-      Element dateElement = doc.selectFirst(".date, .published, .post-date, .article-date");
-      if (dateElement != null) {
+      final Element dateElement =
+          document.selectFirst(".date, .published, .post-date, .article-date");
+      if (Optional.ofNullable(dateElement).isPresent()) {
         // This would require more complex date parsing logic
-        // For now, return current time as fallback
+        return ZonedDateTime.parse(dateElement.text());
       }
 
-    } catch (Exception e) {
+    } catch (final Exception e) {
       AgentLog.error("Error downloading published date: " + e.getMessage());
       // Parsing errors, just return null
     }

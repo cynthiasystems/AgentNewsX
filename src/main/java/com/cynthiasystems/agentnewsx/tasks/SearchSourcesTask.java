@@ -19,7 +19,6 @@ import com.cynthiasystems.agentnewsx.model.AgentConfig;
 import com.cynthiasystems.agentnewsx.model.ContentConfig;
 import com.cynthiasystems.agentnewsx.web.DynamicWebCrawler;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.SneakyThrows;
@@ -35,7 +34,6 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SearchSourcesTask extends AdaptiveRelayTask<AgentConfig, ContentConfig> {
   /** Private constructor that initializes the task with an expression function. */
-  @SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
   private SearchSourcesTask() {
     super(SearchSourcesTask::crawlSearchPage);
   }

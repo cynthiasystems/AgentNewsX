@@ -6,15 +6,16 @@ import java.util.Properties;
 
 import com.cynthiasystems.agentflow.tasks.AdaptiveRelayTask;
 import com.cynthiasystems.agentnewsx.logging.AgentLog;
+import com.cynthiasystems.agentnewsx.model.TweetConfig;
 import com.cynthiasystems.agentnewsx.model.TweetContent;
 import com.cynthiasystems.agentnewsx.model.TweetResult;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.experimental.Accessors;
 import lombok.experimental.FieldDefaults;
 import twitter4j.Status;
+import twitter4j.StatusUpdate;
 import twitter4j.Twitter;
 import twitter4j.TwitterException;
 import twitter4j.TwitterFactory;
@@ -23,16 +24,11 @@ import twitter4j.conf.ConfigurationBuilder;
 /** A task for posting tweets to Twitter using the Twitter API. */
 @Accessors(fluent = true, chain = true)
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class TwitterPostTask extends AdaptiveRelayTask<TweetContent, TweetResult> {
-  /**
-   * Creates a new instance with the given Twitter client.
-   *
-   * @param twitterClient The Twitter API client
-   */
-  @SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
-  private TwitterPostTask(@NonNull final Twitter twitterClient) {
+public class TwitterPostTask extends AdaptiveRelayTask<TweetConfig, TweetResult> {
+  /** Private constructor that initializes the task with an expression function. */
+  private TwitterPostTask() {
     // Pass the expression function to the superclass constructor
-    super(tweetContent -> postTweet(twitterClient, tweetContent));
+    super(TwitterPostTask::postTweet);
   }
 
   /**
@@ -41,6 +37,18 @@ public class TwitterPostTask extends AdaptiveRelayTask<TweetContent, TweetResult
    * @return A new TwitterPostTask configured with credentials from application properties
    */
   public static TwitterPostTask of() {
+    return new TwitterPostTask();
+  }
+
+  /**
+   * Static function to post a tweet and generate a result. This is separated from the instance to
+   * use as the expression function.
+   *
+   * @param tweetConfig The content to post
+   * @return A TweetResult containing the outcome
+   */
+  private static TweetResult postTweet(@NonNull final TweetConfig tweetConfig) {
+
     final Properties properties = readApplicationProperties();
     final String apiKey = properties.getProperty("twitter.api.key");
     final String apiKeySecret = properties.getProperty("twitter.api.key.secret");
@@ -59,29 +67,32 @@ public class TwitterPostTask extends AdaptiveRelayTask<TweetContent, TweetResult
     final TwitterFactory factory = new TwitterFactory(cb.build());
     final Twitter twitterClient = factory.getInstance();
 
-    return new TwitterPostTask(twitterClient);
-  }
-
-  /**
-   * Static function to post a tweet and generate a result. This is separated from the instance to
-   * use as the expression function.
-   *
-   * @param twitterClient The Twitter API client
-   * @param tweetContent The content to post
-   * @return A TweetResult containing the outcome
-   */
-  private static TweetResult postTweet(
-      @NonNull final Twitter twitterClient, @NonNull final TweetContent tweetContent) {
+    final TweetContent tweetContent = tweetConfig.tweetContent();
 
     try {
-      AgentLog.info("Posting tweet: {}", tweetContent.content());
+      // Format the tweet content with interestingness score
+      final String formattedContent =
+          tweetContent.content().trim()
+              + "\n\n(Interestingness: "
+              + tweetContent.interestingScore()
+              + " / 100)";
 
-      // Post to Twitter
-      Status status = twitterClient.updateStatus(tweetContent.content());
+      AgentLog.info("Posting tweet: {}", formattedContent);
+
+      // Create a StatusUpdate object instead of directly using updateStatus
+      final StatusUpdate statusUpdate = new StatusUpdate(formattedContent);
+
+      statusUpdate.setInReplyToStatusId(-1L); // Not a reply
+
+      // Add the URL to the tweet without including it in the text
+      statusUpdate.attachmentUrl(tweetContent.sourceUrl());
+
+      // Post to Twitter with the StatusUpdate object
+      final Status status = twitterClient.updateStatus(statusUpdate);
 
       // Create result with tweet ID and URL
-      String tweetUrl = "https://twitter.com/i/web/status/" + status.getId();
-      TweetResult result =
+      final String tweetUrl = "https://twitter.com/i/web/status/" + status.getId();
+      final TweetResult result =
           TweetResult.builder()
               .content(tweetContent)
               .tweetId(String.valueOf(status.getId()))
@@ -92,7 +103,7 @@ public class TwitterPostTask extends AdaptiveRelayTask<TweetContent, TweetResult
       AgentLog.info("Successfully posted tweet: {}", tweetUrl);
       return result;
 
-    } catch (TwitterException e) {
+    } catch (final TwitterException e) {
       AgentLog.error("Failed to post tweet: {}", e.getMessage());
 
       // Create failed result

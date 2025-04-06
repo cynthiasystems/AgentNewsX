@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -15,10 +16,10 @@ import com.cynthiasystems.agentnewsx.logging.AgentLog;
 import com.cynthiasystems.agentnewsx.model.ArticleContent;
 import com.cynthiasystems.agentnewsx.model.IdentifiableContent;
 import com.cynthiasystems.agentnewsx.model.InterestingConfig;
+import com.cynthiasystems.agentnewsx.model.TweetConfig;
 import com.cynthiasystems.agentnewsx.model.TweetContent;
 import com.cynthiasystems.agentnewsx.utils.JsonUtils;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.experimental.Accessors;
@@ -30,12 +31,11 @@ import lombok.experimental.FieldDefaults;
  */
 @Accessors(fluent = true, chain = true)
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class InterestingTweetTask extends AdaptiveRelayTask<InterestingConfig, TweetContent> {
+public class InterestingTweetTask extends AdaptiveRelayTask<InterestingConfig, TweetConfig> {
   // Pattern to extract JSON from response
   private static final Pattern JSON_PATTERN = Pattern.compile("\\{.*\\}", Pattern.DOTALL);
 
   /** Private constructor that initializes the task with an expression function. */
-  @SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
   private InterestingTweetTask() {
     super(InterestingTweetTask::processArticles);
   }
@@ -53,73 +53,45 @@ public class InterestingTweetTask extends AdaptiveRelayTask<InterestingConfig, T
    * Processes articles from the InterestingConfig, creates TweetContent for each, sorts by interest
    * score, and returns the most interesting one.
    *
-   * @param interestingConfig the config containing articles
+   * @param config the config containing articles
    * @return the most interesting TweetContent or null if none meet criteria
    */
-  private static TweetContent processArticles(@NonNull final InterestingConfig interestingConfig) {
+  private static TweetConfig processArticles(@NonNull final InterestingConfig config) {
     final String systemPrompt = readStringResource("/prompts/CreateInterestingTweet");
+
     final LambdaLabsClient llmClient = LambdaLabsClient.of();
 
     // Create a list to store all tweet content
-    List<TweetContent> allTweets = new ArrayList<>();
+    final List<TweetContent> allTweets = new ArrayList<>();
 
     // Process each article to generate tweet content
-    for (ArticleContent article : interestingConfig.articleContents()) {
+    for (final ArticleContent article : config.articleContents()) {
       try {
         AgentLog.info("Processing article for tweet: " + article.title());
 
         // Prepare the article content as JSON for the model
-        String articleJson = JsonUtils.toJson(article);
+        final String articleJson = JsonUtils.toJson(article);
 
         // Send to LLM for processing
-        IdentifiableContent response =
+        final IdentifiableContent response =
             llmClient.getResponse(
-                "claude-3-5-sonnet-20240229", // Use appropriate model name
+                "deepseek-r1-671b", // Use appropriate model name
                 systemPrompt,
                 articleJson,
-                Duration.ofSeconds(30),
-                2 // retries
-                );
+                Duration.ofSeconds(60),
+                2);
 
-        if (response != null) {
+        if (Optional.ofNullable(response).isPresent()) {
           // Extract JSON from the response
-          String content = response.content();
-
-          // Check for <thinking> tag and extract its content if present
-          String thoughts = "";
-          if (content.contains("<think>")) {
-            int startIndex = content.indexOf("<think>") + "<think>".length();
-            int endIndex = content.indexOf("</think>");
-            if (endIndex > startIndex) {
-              thoughts = content.substring(startIndex, endIndex).trim();
-              // Remove the thinking section from the content
-              content = content.substring(endIndex + "</think>".length()).trim();
-            }
-          }
+          final String content = response.content().replaceAll("<think>[\\s\\S]*?</think>", "");
 
           // Extract JSON from the content
-          Matcher jsonMatcher = JSON_PATTERN.matcher(content);
+          final Matcher jsonMatcher = JSON_PATTERN.matcher(content);
           if (jsonMatcher.find()) {
-            String jsonContent = jsonMatcher.group(0);
+            final String jsonContent = jsonMatcher.group(0);
 
             // Parse the JSON to create TweetContent
-            TweetContent tweetContent = JsonUtils.toObject(jsonContent, TweetContent.class);
-
-            // If thoughts weren't extracted from a thinking tag but are in the JSON, use those
-            if (thoughts.isEmpty() && tweetContent.thoughts() != null) {
-              thoughts = tweetContent.thoughts();
-            }
-
-            // Create a new TweetContent with any extracted thoughts
-            if (!thoughts.equals(tweetContent.thoughts())) {
-              tweetContent =
-                  TweetContent.builder()
-                      .thoughts(thoughts)
-                      .content(tweetContent.content())
-                      .sourceUrl(tweetContent.sourceUrl())
-                      .interestingScore(tweetContent.interestingScore())
-                      .build();
-            }
+            final TweetContent tweetContent = JsonUtils.toObject(jsonContent, TweetContent.class);
 
             AgentLog.info("Created tweet with interest score: " + tweetContent.interestingScore());
             allTweets.add(tweetContent);
@@ -138,9 +110,9 @@ public class InterestingTweetTask extends AdaptiveRelayTask<InterestingConfig, T
 
     // Return the most interesting tweet, or null if none were found
     if (!allTweets.isEmpty()) {
-      TweetContent bestTweet = allTweets.get(0);
+      final TweetContent bestTweet = allTweets.get(0);
       AgentLog.info("Selected most interesting tweet with score: " + bestTweet.interestingScore());
-      return bestTweet;
+      return TweetConfig.builder().interestingConfig(config).tweetContent(bestTweet).build();
     } else {
       AgentLog.info("No interesting tweets found from any articles");
       return null;

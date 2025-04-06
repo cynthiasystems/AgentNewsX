@@ -1,3 +1,13 @@
 package com.cynthiasystems.agentnewsx.model;
 
-public class TweetConfig {}
+import lombok.Builder;
+import lombok.Value;
+import lombok.experimental.Accessors;
+
+@Accessors(fluent = true)
+@Builder
+@Value
+public class TweetConfig {
+  InterestingConfig interestingConfig;
+  TweetContent tweetContent;
+}
