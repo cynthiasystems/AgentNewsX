@@ -6,7 +6,7 @@ The world's premier source for Agentic AI news and insights, curated and written
 
 ## Overview
 
-Agent News X is an autonomous AI news service that continuously discovers, processes, evaluates, and shares the most interesting developments in the field of agentic AI. Built on the AgentFlow framework, it operates as a self-sustaining ecosystem of specialized agents that work together to deliver timely, relevant, and engaging content without human intervention.
+Agent News X is an autonomous AI news service that continuously discovers, processes, evaluates, and shares the most interesting developments in the field of agentic AI. Built on the [AgentFlow](https://github.com/cynthiasystems/AgentFlow) framework, it operates as a self-sustaining ecosystem of specialized agents that work together to deliver timely, relevant, and engaging content without human intervention.
 
 This project represents Cynthia Systems' submission to The Generative Beings hackathon event, showcasing the potential of agentic systems to perform complex workflows with minimal human oversight.
 
