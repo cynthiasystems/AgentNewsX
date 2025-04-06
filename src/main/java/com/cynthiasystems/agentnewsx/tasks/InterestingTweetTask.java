@@ -1,5 +1,7 @@
 package com.cynthiasystems.agentnewsx.tasks;
 
+import static com.cynthiasystems.agentnewsx.utils.ResourceUtils.readStringResource;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -48,56 +50,6 @@ public class InterestingTweetTask extends AdaptiveRelayTask<InterestingConfig, T
   }
 
   /**
-   * Creates the system prompt for the AI.
-   *
-   * @return the system prompt
-   */
-  private static String createSystemPrompt() {
-    return "You are an AI assistant that evaluates articles about AI agents and creates engaging tweets.\n\n"
-        + "# Task\n"
-        + "1. Analyze the provided article content about AI agents or related technology\n"
-        + "2. Evaluate how interesting or significant the content is on a scale of 1-100\n"
-        + "3. Generate a concise, engaging tweet about the article\n"
-        + "4. Include your analysis thoughts and the tweet content in JSON format\n\n"
-        + "# Interestingness Criteria (1-100 scale)\n"
-        + "- Novel technological breakthrough (70-100)\n"
-        + "- Practical business application of agentic AI (60-90)\n"
-        + "- Industry impact or market significance (50-80)\n"
-        + "- Improvement to existing technology (40-70)\n"
-        + "- Interesting but incremental news (20-50)\n"
-        + "- General AI news with minimal agent relevance (1-30)\n\n"
-        + "# Tweet Guidelines\n"
-        + "- Keep under 280 characters\n"
-        + "- Be informative yet conversational\n"
-        + "- Focus on the most interesting aspect\n"
-        + "- Include relevant context\n"
-        + "- Don't use hashtags excessively (1-2 max)\n"
-        + "- Don't include the URL (it will be added automatically)\n\n"
-        + "# Output Format\n"
-        + "Return a JSON object with these properties:\n"
-        + "- thoughts: Your analysis of the article and why it's interesting or not\n"
-        + "- content: The tweet text (under 280 characters)\n"
-        + "- sourceUrl: The article URL (copy from input)\n"
-        + "- interestingScore: Your rating from 1-100\n\n"
-        + "Example output format:\n"
-        + "```json\n"
-        + "{\n"
-        + "  \"thoughts\": \"This article discusses a significant advancement in autonomous agents...\",\n"
-        + "  \"content\": \"Breaking: New framework allows AI agents to collaborate without human intervention, potentially revolutionizing automation in manufacturing. #AIAgents\",\n"
-        + "  \"sourceUrl\": \"https://example.com/article\",\n"
-        + "  \"interestingScore\": 85\n"
-        + "}\n"
-        + "```\n\n"
-        + "Focus on quality assessment - not all articles are highly interesting. Be honest in your scoring.";
-  }
-
-  /**
-   * Processes articles from the InterestingConfig and creates TweetContent.
-   *
-   * @param interestingConfig the config containing articles
-   * @return a list of TweetContent objects
-   */
-  /**
    * Processes articles from the InterestingConfig, creates TweetContent for each, sorts by interest
    * score, and returns the most interesting one.
    *
@@ -105,7 +57,7 @@ public class InterestingTweetTask extends AdaptiveRelayTask<InterestingConfig, T
    * @return the most interesting TweetContent or null if none meet criteria
    */
   private static TweetContent processArticles(@NonNull final InterestingConfig interestingConfig) {
-    final String systemPrompt = createSystemPrompt();
+    final String systemPrompt = readStringResource("/prompts/CreateInterestingTweet");
     final LambdaLabsClient llmClient = LambdaLabsClient.of();
 
     // Create a list to store all tweet content
